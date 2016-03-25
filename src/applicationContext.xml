@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" -->
+<!--" http://www.springframework.org/dtd/spring-beans.dtd"> -->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.0.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.0.xsd">
+
+	<bean id="sessionFactory"
+		class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
+		<property name="configLocation">
+			<value>classpath:hibernate.cfg.xml</value>
+		</property>
+	</bean>
+		
+	<bean id="myHibTxManager"
+		class="org.springframework.orm.hibernate3.HibernateTransactionManager">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+	<tx:advice id="txAdvice" transaction-manager="myHibTxManager">
+		<tx:attributes>
+			<!-- 对get/load/search开头的方法要求只读事务 -->
+			<tx:method name="get*" propagation="SUPPORTS" read-only="true" />
+			<tx:method name="load*" propagation="SUPPORTS" read-only="true" />
+			<tx:method name="search*" propagation="SUPPORTS" read-only="true" />
+			<!-- 对其它方法要求事务 -->
+			<tx:method name="*" propagation="REQUIRED" />	
+		</tx:attributes >
+	</tx:advice>
+	<aop:config>
+		<!-- 
+		只对GoodsBiz添加事务支持，因为前面配置的transactionManager
+	     是专对Hibernate的事务管理器 。
+		-->
+		<aop:pointcut id="serviceMethods" 
+			expression="execution(* org.jb.y272.team0.biz.*.*(..))" />
+		<!-- 织入 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="serviceMethods" />
+	</aop:config>
+	<!-- 1. DAO -->
+	<bean id="commonDAO"
+		class="org.jb.common.dao.hibimpl.CommonDAOHibImpl">
+		<property name="sessionFactory">
+			<ref local="sessionFactory" />
+		</property>
+	</bean>
+	<!-- 2. BIZ -->
+	<bean id="baseBiz" class="org.jb.common.biz.BaseBiz" abstract="true">
+		<property name="commonDAO" ref="commonDAO"/>
+	</bean>
+	<bean id="userBiz"
+		class="org.jb.y272.team0.biz.UserBiz" parent="baseBiz">
+	</bean>
+	<bean id="roleBiz"
+		class="org.jb.y272.team0.biz.RoleBiz" parent="baseBiz">
+	</bean>
+	<!-- 3. Action -->
+	<bean name="/user" class="org.jb.y272.team0.web.action.UserAction">
+		<property name="userBiz">
+			<ref bean="userBiz" />
+		</property>
+		<property name="roleBiz">
+			<ref bean="roleBiz" />
+		</property>
+	</bean>
+	<bean name="/role" class="org.jb.y272.team0.web.action.RoleAction">
+		<property name="roleBiz">
+			<ref bean="roleBiz" />
+		</property>
+	</bean>
+	<bean name="/home" class="org.jb.y272.team0.web.action.HomeAction">	
+	</bean>
+</beans>
